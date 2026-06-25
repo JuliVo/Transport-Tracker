@@ -152,8 +152,8 @@ if st.button("Speichern"):
 
     from supabase import create_client
 
-    url = "DEINE_URL"
-    key = "DEIN_KEY"
+    url = "transport-tracker.streamlit.app"
+    key = "1234"
 
     supabase = create_client(url, key)
     supabase.table("trips").insert({
