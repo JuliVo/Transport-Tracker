@@ -16,7 +16,11 @@ supabase = create_client(url, key)
 # ----------------------------
 # Konfiguration
 # ----------------------------
+user = st.text_input("Password")
 
+if user != st.secrets["APP_PASSWORD"]:
+    st.stop()
+    
 TRANSPORTS = [
     "DB Fern",
     "Nahverkehr",
