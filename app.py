@@ -1,19 +1,21 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
-from datetime import date
-from datetime import datetime
+
+from datetime import date, datetime
 from supabase import create_client
 
-#python -m streamlit run /home/julianv/Schreibtisch/verschiedenes/TransportTracker/app.py
-test = 0
-if test == 1:
-    name = "test.db"
-else:
-    name = "transport.db"
+# ----------------------------
+# Supabase
+# ----------------------------
 
-st.title("ÖPV Tracker")
-st.write("Version: 0.2")
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
+
+supabase = create_client(url, key)
+
+# ----------------------------
+# Konfiguration
+# ----------------------------
 
 TRANSPORTS = [
     "DB Fern",
@@ -35,16 +37,39 @@ STATIONS = [
     "Waldau",
     "Kirchheim",
     "Weilheim Kirchheimerstraße/-hegelstraße",
-    "Weilheim Marktplatz"
-] 
+    "Weilheim Marktplatz",
+]
+
 LINES = [
     "U12",
     "U13",
     "U7",
     "S1",
     "RE200",
-    "RE9"
+    "RE9",
 ]
+
+# ----------------------------
+# Hilfsfunktionen
+# ----------------------------
+
+def valid_time(time_string):
+    if time_string == "":
+        return False
+
+    try:
+        datetime.strptime(time_string, "%H:%M")
+        return True
+    except ValueError:
+        return False
+
+
+# ----------------------------
+# Oberfläche
+# ----------------------------
+
+st.title("ÖPNV Tracker")
+st.write("Version 0.2")
 
 trip_type = st.selectbox(
     "Art der Fahrt",
@@ -52,43 +77,39 @@ trip_type = st.selectbox(
         "Direktverbindung",
         "Beginn der Fahrt",
         "In der Fahrt",
-        "Ende der Fahrt"
-    ]
+        "Ende der Fahrt",
+    ],
 )
 
 journey_map = {
     "Direktverbindung": 0,
     "Beginn der Fahrt": 1,
     "In der Fahrt": 2,
-    "Ende der Fahrt": 3
+    "Ende der Fahrt": 3,
 }
 
 journey = journey_map[trip_type]
 
 trip_date = st.date_input(
     "Datum",
-    value=date.today()
+    value=date.today(),
 )
 
 schedule_start = st.text_input(
-    "Geplante Startzeit"
+    "Geplante Startzeit (HH:MM)"
 )
-try:
-    datetime.strptime(schedule_start, "%H:%M")
-except ValueError:
-    st.error("Bitte Uhrzeit im Format HH:MM eingeben.")
 
 start = st.text_input(
-    "Tatsächliche Startzeit"
+    "Tatsächliche Startzeit (HH:MM)"
 )
-try:
-    datetime.strptime(start, "%H:%M")
-except ValueError:
-    st.error("Bitte Uhrzeit im Format HH:MM eingeben.")
+
+# ----------------------------
+# Start
+# ----------------------------
 
 start_option = st.selectbox(
     "Start",
-    ["Andere..."] + STATIONS
+    ["Andere..."] + STATIONS,
 )
 
 if start_option == "Andere...":
@@ -98,27 +119,40 @@ if start_option == "Andere...":
 else:
     start_point = start_option
 
+# ----------------------------
+# Ziel
+# ----------------------------
+
 destination_option = st.selectbox(
     "Ziel",
-    ["Andere..."] + STATIONS
+    ["Andere..."] + STATIONS,
 )
 
 if destination_option == "Andere...":
     destination = st.text_input(
-        "End-Haltestelle"
+        "Ziel-Haltestelle"
     )
 else:
     destination = destination_option
 
+# ----------------------------
+# Verkehrsmittel
+# ----------------------------
+
 transport = st.selectbox(
     "Verkehrsmittel",
-    TRANSPORTS
+    TRANSPORTS,
 )
+
+# ----------------------------
+# Linie
+# ----------------------------
 
 line_option = st.selectbox(
     "Linie",
-    ["Andere..."] + LINES
+    ["Andere..."] + LINES,
 )
+
 if line_option == "Andere...":
     line = st.text_input(
         "Linienbezeichnung"
@@ -126,63 +160,90 @@ if line_option == "Andere...":
 else:
     line = line_option
 
+# ----------------------------
+# Zeiten
+# ----------------------------
+
 schedule_min = st.number_input(
-    "Fahrplandauer",
-    min_value=0
+    "Fahrplandauer (min)",
+    min_value=0,
 )
 
 duration_min = st.number_input(
-    "Tatsächliche Dauer",
-    min_value=0
+    "Tatsächliche Dauer (min)",
+    min_value=0,
 )
+
+# ----------------------------
+# Geplante Ankunft
+# ----------------------------
+
+schedule_arrival = None
+
 if trip_type in ["Direktverbindung", "Ende der Fahrt"]:
     schedule_arrival = st.text_input(
-    "Geplante Ankunft (HH:MM)",
+        "Geplante Ankunft (HH:MM)"
     )
-    try:
-        datetime.strptime(schedule_arrival, "%H:%M")
-    except ValueError:
-        st.error("Bitte Uhrzeit im Format HH:MM eingeben.")
-else:
-    schedule_arrival = None
 
-
+# ----------------------------
+# Speichern
+# ----------------------------
 
 if st.button("Speichern"):
 
-    from supabase import create_client
+    error = False
 
-    url = "transport-tracker.streamlit.app"
-    key = "1234"
+    if not valid_time(schedule_start):
+        st.error("Geplante Startzeit muss im Format HH:MM angegeben werden.")
+        error = True
 
-    supabase = create_client(url, key)
-    supabase.table("trips").insert({
-    "journey": journey,
-    "date": str(trip_date),
-    "schedule_start": schedule_start,
-    "schedule_arrival": schedule_arrival,
-    "start": start,
-    "start_point": start_point,
-    "destination": destination,
-    "transport": transport,
-    "line": line,
-    "schedule_min": schedule_min,
-    "duration_min": duration_min
-    }).execute()
+    if not valid_time(start):
+        st.error("Tatsächliche Startzeit muss im Format HH:MM angegeben werden.")
+        error = True
 
-    st.success("Fahrt gespeichert!")
-print (name)
-conn = sqlite3.connect(name)
+    if trip_type in ["Direktverbindung", "Ende der Fahrt"]:
+        if not valid_time(schedule_arrival):
+            st.error("Geplante Ankunft muss im Format HH:MM angegeben werden.")
+            error = True
 
-df = response = (
+    if not error:
+
+        supabase.table("trips").insert(
+            {
+                "journey": journey,
+                "date": str(trip_date),
+                "schedule_start": schedule_start,
+                "schedule_arrival": schedule_arrival,
+                "start": start,
+                "start_point": start_point,
+                "destination": destination,
+                "transport": transport,
+                "line": line,
+                "schedule_min": int(schedule_min),
+                "duration_min": int(duration_min),
+            }
+        ).execute()
+
+        st.success("Fahrt gespeichert!")
+
+# ----------------------------
+# Letzte Einträge anzeigen
+# ----------------------------
+
+st.subheader("Letzte Einträge")
+
+response = (
     supabase
     .table("trips")
     .select("*")
+    .order("id", desc=True)
+    .limit(10)
     .execute()
 )
 
 df = pd.DataFrame(response.data)
 
-st.dataframe(df)
-
-conn.close()
+if not df.empty:
+    st.dataframe(df)
+else:
+    st.info("Noch keine Fahrten vorhanden.")
