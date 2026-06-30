@@ -113,7 +113,7 @@ if last_trip is None:
     default_line = ""
     default_schedule_min = 0
     default_duration_min = 0
-    default_schedule_arrival = 0
+    default_schedule_arrival = ""
 
 else:
 
@@ -132,7 +132,7 @@ else:
     default_line = last_trip["line"] or ""
     default_schedule_min = last_trip["schedule_min"]
     default_duration_min = last_trip["duration_min"]
-    default_schedule_arrival = last_tript["schedule_arrival"]
+    default_schedule_arrival = last_trip["schedule_arrival"]
 
 
 
@@ -174,10 +174,17 @@ start = st.text_input(
 # Start
 # ----------------------------
 
+start_choices = ["Andere..."] + STATIONS
+
+if default_start_point in STATIONS:
+    start_index = start_choices.index(default_start_point)
+else:
+    start_index = 0
+
 start_option = st.selectbox(
     "Start",
-    ["Andere..."] + STATIONS,
-    value=default_start_point
+    start_choices,
+    index=start_index
 )
 
 if start_option == "Andere...":
@@ -191,10 +198,17 @@ else:
 # Ziel
 # ----------------------------
 
+destination_choices = ["Andere..."] + STATIONS
+
+if default_destionation_point in STATIONS:
+    destination_index = destination_choices.index(default_destination_point)
+else:
+    destination_index = 0
+
 destination_option = st.selectbox(
     "Ziel",
-    ["Andere..."] + STATIONS,
-    value=default_destination
+    destination_choices,
+    index=destination_index
 )
 
 if destination_option == "Andere...":
@@ -218,15 +232,23 @@ transport = st.selectbox(
 # Linie
 # ----------------------------
 
+line_choices = ["Andere..."] + LINES
+
+if default_line in LINES:
+    line_index = line_choices.index(default_line)
+else:
+    line_index = 0
+
 line_option = st.selectbox(
     "Linie",
-    ["Andere..."] + LINES,
-    value=default_line
+    line_choices,
+    index=line_index
 )
 
 if line_option == "Andere...":
     line = st.text_input(
-        "Linienbezeichnung"
+        "Linienbezeichnung",
+        value="" if default_line in LINES else default_line
     )
 else:
     line = line_option
@@ -283,35 +305,34 @@ if st.button("Speichern"):
     if not error:
 
         values = {
-    "journey": journey,
-    "date": str(trip_date),
-    "schedule_start": schedule_start,
-    "schedule_arrival": schedule_arrival,
-    "start": start,
-    "start_point": start_point,
-    "destination": destination,
-    "transport": transport,
-    "line": line,
-    "schedule_min": int(schedule_min),
-    "duration_min": int(duration_min),
-}
+            "journey": journey,
+            "date": str(trip_date),
+            "schedule_start": schedule_start,
+            "schedule_arrival": schedule_arrival,
+            "start": start,
+            "start_point": start_point,
+            "destination": destination,
+            "transport": transport,
+            "line": line,
+            "schedule_min": int(schedule_min),
+            "duration_min": int(duration_min),
+        }
 
-if mode == "Neue Fahrt":
+        if mode == "Neue Fahrt":
+        
+            supabase.table("trips").insert(values).execute()
+        
+            st.success("Fahrt gespeichert!")
 
-    supabase.table("trips").insert(values).execute()
+        else:
+        
+            supabase.table("trips").update(values).eq(
+                "id",
+                last_trip["id"]
+            ).execute()
+        
+            st.success("Letzte Fahrt aktualisiert!")
 
-    st.success("Fahrt gespeichert!")
-
-else:
-
-    supabase.table("trips").update(values).eq(
-        "id",
-        last_trip["id"]
-    ).execute()
-
-    st.success("Letzte Fahrt aktualisiert!")
-
-        st.success("Fahrt gespeichert!")
 
 # ----------------------------
 # Letzte Einträge anzeigen
