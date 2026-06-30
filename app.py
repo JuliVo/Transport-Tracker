@@ -200,8 +200,8 @@ else:
 
 destination_choices = ["Andere..."] + STATIONS
 
-if default_destination_point in STATIONS:
-    destination_index = destination_choices.index(default_destination_point)
+if default_destination in STATIONS:
+    destination_index = destination_choices.index(default_destination)
 else:
     destination_index = 0
 
