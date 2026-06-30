@@ -173,7 +173,6 @@ start = st.text_input(
 # ----------------------------
 # Start
 # ----------------------------
-
 start_choices = ["Andere..."] + STATIONS
 
 if default_start_point in STATIONS:
@@ -189,7 +188,8 @@ start_option = st.selectbox(
 
 if start_option == "Andere...":
     start_point = st.text_input(
-        "Start-Haltestelle"
+        "Start-Haltestelle",
+        value="" if default_start_point in STATIONS else default_start_point
     )
 else:
     start_point = start_option
@@ -213,7 +213,8 @@ destination_option = st.selectbox(
 
 if destination_option == "Andere...":
     destination = st.text_input(
-        "Ziel-Haltestelle"
+        "Ziel-Haltestelle",
+        value="" if default_destination in STATIONS else default_destination
     )
 else:
     destination = destination_option
