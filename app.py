@@ -73,7 +73,68 @@ def valid_time(time_string):
 # ----------------------------
 
 st.title("ÖPNV Tracker")
-st.write("Version 0.2")
+st.write("Version 0.3")
+
+mode = st.radio(
+    "Modus",
+    [
+        "Neue Fahrt",
+        "Letzten Eintrag bearbeiten"
+    ]
+)
+
+last_trip = None
+
+if mode == "Letzten Eintrag bearbeiten":
+    response = (
+        supabase
+        .table("trips")
+        .select("*")
+        .order("id", desc=True)
+        .limit(1)
+        .execute()
+    )
+
+    if len(response.data) == 0:
+        st.warning("Es existiert noch keine Fahrt.")
+        st.stop()
+
+    last_trip = response.data[0]
+if last_trip is None:
+
+    default_journey = 0
+    default_date = date.today()
+    default_schedule_start = ""
+    default_schedule_arrival = ""
+    default_start = ""
+    default_start_point = ""
+    default_destination = ""
+    default_transport = TRANSPORTS[0]
+    default_line = ""
+    default_schedule_min = 0
+    default_duration_min = 0
+    default_schedule_arrival = 0
+
+else:
+
+    default_journey = last_trip["journey"]
+    default_date = datetime.strptime(
+        last_trip["date"],
+        "%Y-%m-%d"
+    ).date()
+
+    default_schedule_start = last_trip["schedule_start"] or ""
+    default_schedule_arrival = last_trip["schedule_arrival"] or ""
+    default_start = last_trip["start"] or ""
+    default_start_point = last_trip["start_point"] or ""
+    default_destination = last_trip["destination"] or ""
+    default_transport = last_trip["transport"]
+    default_line = last_trip["line"] or ""
+    default_schedule_min = last_trip["schedule_min"]
+    default_duration_min = last_trip["duration_min"]
+    default_schedule_arrival = last_tript["schedule_arrival"]
+
+
 
 trip_type = st.selectbox(
     "Art der Fahrt",
@@ -83,6 +144,7 @@ trip_type = st.selectbox(
         "In der Fahrt",
         "Ende der Fahrt",
     ],
+    index=default_journey
 )
 
 journey_map = {
@@ -96,15 +158,16 @@ journey = journey_map[trip_type]
 
 trip_date = st.date_input(
     "Datum",
-    value=date.today(),
+    value=default_date
 )
 
 schedule_start = st.text_input(
-    "Geplante Startzeit (HH:MM)"
+    "Geplante Startzeit",
+    value=default_schedule_start
 )
-
 start = st.text_input(
-    "Tatsächliche Startzeit (HH:MM)"
+    "Tatsächliche Startzeit",
+    value=default_start
 )
 
 # ----------------------------
@@ -114,6 +177,7 @@ start = st.text_input(
 start_option = st.selectbox(
     "Start",
     ["Andere..."] + STATIONS,
+    value=default_start_point
 )
 
 if start_option == "Andere...":
@@ -130,6 +194,7 @@ else:
 destination_option = st.selectbox(
     "Ziel",
     ["Andere..."] + STATIONS,
+    value=default_destination
 )
 
 if destination_option == "Andere...":
@@ -146,6 +211,7 @@ else:
 transport = st.selectbox(
     "Verkehrsmittel",
     TRANSPORTS,
+    index=TRANSPORTS.index(default_transport)
 )
 
 # ----------------------------
@@ -155,6 +221,7 @@ transport = st.selectbox(
 line_option = st.selectbox(
     "Linie",
     ["Andere..."] + LINES,
+    value=default_line
 )
 
 if line_option == "Andere...":
@@ -169,13 +236,15 @@ else:
 # ----------------------------
 
 schedule_min = st.number_input(
-    "Fahrplandauer (min)",
+    "Fahrplandauer",
     min_value=0,
+    value=int(default_schedule_min)
 )
 
 duration_min = st.number_input(
     "Tatsächliche Dauer (min)",
     min_value=0,
+    value=int(default_duration_min)
 )
 
 # ----------------------------
@@ -186,7 +255,8 @@ schedule_arrival = None
 
 if trip_type in ["Direktverbindung", "Ende der Fahrt"]:
     schedule_arrival = st.text_input(
-        "Geplante Ankunft (HH:MM)"
+        "Geplante Ankunft (HH:MM)",
+        value=default_schedule_arrival
     )
 
 # ----------------------------
@@ -212,21 +282,34 @@ if st.button("Speichern"):
 
     if not error:
 
-        supabase.table("trips").insert(
-            {
-                "journey": journey,
-                "date": str(trip_date),
-                "schedule_start": schedule_start,
-                "schedule_arrival": schedule_arrival,
-                "start": start,
-                "start_point": start_point,
-                "destination": destination,
-                "transport": transport,
-                "line": line,
-                "schedule_min": int(schedule_min),
-                "duration_min": int(duration_min),
-            }
-        ).execute()
+        values = {
+    "journey": journey,
+    "date": str(trip_date),
+    "schedule_start": schedule_start,
+    "schedule_arrival": schedule_arrival,
+    "start": start,
+    "start_point": start_point,
+    "destination": destination,
+    "transport": transport,
+    "line": line,
+    "schedule_min": int(schedule_min),
+    "duration_min": int(duration_min),
+}
+
+if mode == "Neue Fahrt":
+
+    supabase.table("trips").insert(values).execute()
+
+    st.success("Fahrt gespeichert!")
+
+else:
+
+    supabase.table("trips").update(values).eq(
+        "id",
+        last_trip["id"]
+    ).execute()
+
+    st.success("Letzte Fahrt aktualisiert!")
 
         st.success("Fahrt gespeichert!")
 
